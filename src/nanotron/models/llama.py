@@ -143,20 +143,32 @@ class MLP(nn.Module):
             parallel_config.tp_linear_async_communication if parallel_config is not None else False
         )
 
-        gate_up_contiguous_chunks = (
-            config.intermediate_size,  # shape of gate_linear
-            config.intermediate_size,  # shape of up_linear
-        )
-        self.gate_up_proj = TensorParallelColumnLinear(
-            config.hidden_size,
-            2 * config.intermediate_size,
-            pg=tp_pg,
-            mode=tp_mode,
-            bias=False,
-            async_communication=tp_linear_async_communication,
-            contiguous_chunks=gate_up_contiguous_chunks,
-            tp_recompute_allgather=parallel_config.tp_recompute_allgather,
-        )
+        if config.gated_mlp:
+            gate_up_contiguous_chunks = (
+                config.intermediate_size,  # shape of gate_linear
+                config.intermediate_size,  # shape of up_linear
+            )
+            self.gate_up_proj = TensorParallelColumnLinear(
+                config.hidden_size,
+                2 * config.intermediate_size,
+                pg=tp_pg,
+                mode=tp_mode,
+                bias=False,
+                async_communication=tp_linear_async_communication,
+                contiguous_chunks=gate_up_contiguous_chunks,
+                tp_recompute_allgather=parallel_config.tp_recompute_allgather,
+            )
+            self.activation = torch.compile(GLUActivation(config.hidden_act))
+        else:
+            self.gate_up_proj = TensorParallelColumnLinear(
+                config.hidden_size,
+                config.intermediate_size,
+                pg=tp_pg,
+                mode=tp_mode,
+                bias=False,
+                async_communication=tp_linear_async_communication,
+            )
+            self.activation = torch.compile(ACT2FN[config.hidden_act])
         self.down_proj = TensorParallelRowLinear(
             config.intermediate_size,
             config.hidden_size,
@@ -165,11 +177,10 @@ class MLP(nn.Module):
             bias=False,
             async_communication=tp_linear_async_communication and tp_mode is TensorParallelLinearMode.REDUCE_SCATTER,
         )
-        self.split_silu_mul = torch.compile(GLUActivation(config.hidden_act))
 
     def forward(self, hidden_states):  # [seq_length, batch_size, hidden_dim]
         merged_states = self.gate_up_proj(hidden_states)
-        hidden_states = self.down_proj(self.split_silu_mul(merged_states))
+        hidden_states = self.down_proj(self.activation(merged_states))
         return {"hidden_states": hidden_states}
 
 
