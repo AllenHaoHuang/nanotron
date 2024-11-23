@@ -949,6 +949,10 @@ class LlamaForTraining(NanotronModel):
             else:
                 full_param_name = f"{module_name}.{param_name}"
 
+            # TODO there should be a cleaner implementation
+            if "alpha_p" in full_param_name or "alpha_n" in full_param_name:
+                initialized_parameters.add(full_param_name)
+
             if full_param_name in initialized_parameters:
                 # Already initialized
                 continue
