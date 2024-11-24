@@ -42,6 +42,21 @@ class XIELU(nn.Module):
                            alpha_n * torch.expm1(torch.min(x, self.eps)) - alpha_n * x + self.beta * x)
 
 
+class XIELUv2(nn.Module):
+    def __init__(self, alpha_p_init=2.0, alpha_n_init=0.8, beta=0.5):
+        super(XIELUv2, self).__init__()
+        self.beta = beta
+        self.alpha_p = NanotronParameter(torch.log(torch.tensor(alpha_p_init)) - 1)
+        self.alpha_n = NanotronParameter(torch.log(torch.tensor(alpha_n_init - self.beta)) - 1)
+
+    def forward(self, x):
+        alpha_p = F.softplus(self.alpha_p)
+        alpha_n = self.beta + F.softplus(self.alpha_n)
+        return torch.where(x > -1e-6,
+                           alpha_p * x * x + self.beta * x,
+                           alpha_n * torch.expm1(x) - alpha_n * x + self.beta * x)
+
+
 class PytorchGELUTanh(nn.Module):
     """
     A fast C implementation of the tanh approximation of the GeLU activation function. See
@@ -247,6 +262,7 @@ ACT2CLS = {
     "swish": SiLUActivation,
     "tanh": nn.Tanh,
     "xielu": XIELU,
+    "xieluv2": XIELUv2,
 }
 ACT2FN = ClassInstantier(ACT2CLS)
 
