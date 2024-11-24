@@ -27,7 +27,7 @@ logger = logging.get_logger(__name__)
 
 
 class XIELU(nn.Module):
-    def __init__(self, alpha_p_init=0.8, alpha_n_init=0.8, beta=0.5, eps=-1e-6):
+    def __init__(self, alpha_p_init=2.0, alpha_n_init=0.8, beta=0.5, eps=-1e-6):
         super(XIELU, self).__init__()
         self.beta = beta
         self.alpha_p = NanotronParameter(torch.log(torch.tensor(alpha_p_init)) - 1)
