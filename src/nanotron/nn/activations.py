@@ -27,7 +27,7 @@ logger = logging.get_logger(__name__)
 
 
 class XIELU(nn.Module):
-    def __init__(self, alpha_p_init=1.0, alpha_n_init=0.8, beta=0.5, eps=-1e-6):
+    def __init__(self, alpha_p_init=1.0, alpha_n_init=0.8, beta=0.25, eps=-1e-6):
         super(XIELU, self).__init__()
         self.beta = beta
         self.alpha_p = NanotronParameter(torch.log(torch.tensor(alpha_p_init)) - 1)
@@ -39,20 +39,6 @@ class XIELU(nn.Module):
         alpha_n = self.beta + F.softplus(self.alpha_n)
         return torch.where(x > 0,
                            alpha_p * x * x + self.beta * x,
-                           alpha_n * torch.expm1(torch.min(x, self.eps)) - alpha_n * x + self.beta * x)
-
-
-class XIELUv2(nn.Module):
-    def __init__(self, alpha_n_init=0.8, beta=0.5, eps=-1e-6):
-        super(XIELUv2, self).__init__()
-        self.beta = beta
-        self.alpha_n = NanotronParameter(torch.log(torch.tensor(alpha_n_init - self.beta)) - 1)
-        self.eps = torch.tensor(eps)
-
-    def forward(self, x):
-        alpha_n = self.beta + F.softplus(self.alpha_n)
-        return torch.where(x > 0,
-                           x * x + self.beta * x,
                            alpha_n * torch.expm1(torch.min(x, self.eps)) - alpha_n * x + self.beta * x)
 
 
